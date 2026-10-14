@@ -1,13 +1,14 @@
-"""Tiny CPU-only Gemma 4 and OLMo 3 text models for the LRP-surgery tests.
+"""Tiny CPU-only Gemma 4, Gemma 3 and OLMo 3 text models for the LRP-surgery tests.
 
 Like :mod:`workspace_lens.tests.tiny_qwen`, these build the real transformers
 classes from shrunk configs, so the module classes the LRP surgery patches on
 the full models — ``Gemma4RMSNorm`` (plain weight, optional
-``with_scale``), ``Gemma4TextMLP`` (GELU-tanh), ``Olmo3RMSNorm`` (weight in
+``with_scale``), ``Gemma4TextMLP`` (GELU-tanh), ``Gemma3RMSNorm`` (``1 + w``
+in fp32), ``Gemma3MLP`` (GELU-tanh), ``Olmo3RMSNorm`` (weight in
 fp32 before the cast, on the sublayer outputs of a post-norm block) and
 ``Olmo3MLP`` (SiLU) — exercise the per-class patchers for real. Gemma's
-attention keeps its ``q_norm``, ``k_norm`` and weightless ``v_norm``, which
-the LN-rule must leave alone.
+attention keeps its ``q_norm``, ``k_norm`` (and, in Gemma 4, a weightless
+``v_norm``), which the LN-rule must leave alone.
 
 Two Gemma fixtures: the text-only ``Gemma4ForCausalLM`` (module names
 ``model.layers.<i>...``) for the rule tests, and the multimodal
@@ -27,6 +28,7 @@ from __future__ import annotations
 import torch as t
 from torch import nn
 from transformers import AutoConfig
+from transformers.models.gemma3 import Gemma3ForCausalLM
 from transformers.models.gemma4 import Gemma4ForCausalLM, Gemma4ForConditionalGeneration
 from transformers.models.gemma4.configuration_gemma4 import Gemma4Config
 from transformers.models.olmo3 import Olmo3ForCausalLM
@@ -91,6 +93,16 @@ def build_tiny_gemma4_multimodal() -> Gemma4ForConditionalGeneration:
         audio_config=dict(hidden_size=32, num_hidden_layers=1),
     )
     return _randomly_initialised(Gemma4ForConditionalGeneration, config)  # type: ignore[return-value]
+
+
+def build_tiny_gemma3() -> Gemma3ForCausalLM:
+    """A tiny Gemma 3 text model on CPU, the class ``google/gemma-3-1b-it`` loads as:
+    GELU-tanh gated ``Gemma3MLP``, four ``Gemma3RMSNorm`` per block (stored as ``w``
+    and applied as ``1 + w``) plus the final norm, and q/k norms in attention."""
+    config = AutoConfig.for_model(
+        "gemma3_text", **_TINY_ATTENTION_CONFIG_KWARGS, hidden_activation="gelu_pytorch_tanh"
+    )
+    return _randomly_initialised(Gemma3ForCausalLM, config)  # type: ignore[return-value]
 
 
 def build_tiny_olmo3() -> Olmo3ForCausalLM:
