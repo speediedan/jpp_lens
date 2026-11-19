@@ -40,8 +40,8 @@ gradient scale). ``shared_expert_forward_scale`` is NOT a propagation rule: it m
 DeepSeek shared expert's output in the forward, so the fitted model is the
 amplified one (used by the ``all-c4+mhc`` preset).
 
-Gemma 3 (``Gemma3RMSNorm``, Qwen3.5's (1 + w) forward; ``Gemma3MLP`` with
-GELU-tanh), Gemma 4 (``Gemma4RMSNorm``, ``Gemma4TextMLP`` with GELU-tanh) and
+Gemma 3 and Gemma 2 (``Gemma3RMSNorm`` / ``Gemma2RMSNorm``, Qwen3.5's (1 + w) forward;
+``Gemma3MLP`` / ``Gemma2MLP`` with GELU-tanh), Gemma 4 (``Gemma4RMSNorm``, ``Gemma4TextMLP`` with GELU-tanh) and
 OLMo 3 (``Olmo3RMSNorm`` on the sublayer outputs of its post-norm blocks,
 ``Olmo3MLP``) are covered too. The identity rule holds for any activation of
 the form ``act(z) = z · g(z)`` with the gate ``g`` detached (RelP's "GELU /
@@ -97,6 +97,7 @@ _KNOWN_GATED_MLPS = (
     "Qwen3MoeMLP",
     "Olmo3MLP",  # SiLU; forward byte-identical to Qwen3_5MLP's (transformers 5.14.1)
     "Gemma3MLP",  # GELU-tanh; same down(act(gate(x)) * up(x)) forward
+    "Gemma2MLP",  # GELU-tanh; forward byte-identical to Gemma3MLP's (transformers 5.14.1)
     "Gemma4TextMLP",  # GELU-tanh; same down(act(gate(x)) * up(x)) forward
     # DeepSeek-V4's dense / shared-expert MLP: down(act(clamp(gate(x))) * clamp(up(x)))
     # with a ``limit`` attribute (swiglu_limit); the patcher reproduces the clamps.
@@ -328,6 +329,10 @@ _RMSNORM_LRP_FORWARDS = {
     # Value-identical family: zero-init (1+w), same eps attr, same cast order.
     "Qwen3_5MoeRMSNorm": _qwen3_5_rmsnorm_lrp_forward,
     "Gemma3RMSNorm": _qwen3_5_rmsnorm_lrp_forward,  # (1+w) in fp32 then type_as, eps attr `eps`
+    # Gemma 2's forward is byte-identical to Gemma 3's (transformers 5.14.1). Its attention-logit soft
+    # cap sits inside self_attn, which keeps standard gradients; its final-logit soft cap is applied by
+    # the readout (jlens.hf), not by any patched module.
+    "Gemma2RMSNorm": _qwen3_5_rmsnorm_lrp_forward,
     "Qwen2RMSNorm": _qwen2_rmsnorm_lrp_forward,
     "Qwen3RMSNorm": _qwen2_rmsnorm_lrp_forward,  # same forward as Qwen2's
     "Qwen3MoeRMSNorm": _qwen2_rmsnorm_lrp_forward,  # byte-identical to Qwen2's

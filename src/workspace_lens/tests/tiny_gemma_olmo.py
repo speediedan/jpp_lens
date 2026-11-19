@@ -1,4 +1,4 @@
-"""Tiny CPU-only Gemma 3, Gemma 4 and OLMo 3 text models for the LRP-surgery tests.
+"""Tiny CPU-only Gemma 2, Gemma 3, Gemma 4 and OLMo 3 text models for the LRP-surgery tests.
 
 Like :mod:`workspace_lens.tests.tiny_qwen`, these build the real transformers
 classes from shrunk configs, so the module classes the LRP surgery patches on
@@ -30,6 +30,7 @@ from __future__ import annotations
 import torch as t
 from torch import nn
 from transformers import AutoConfig
+from transformers.models.gemma2 import Gemma2ForCausalLM
 from transformers.models.gemma3 import Gemma3ForCausalLM, Gemma3ForConditionalGeneration
 from transformers.models.gemma3.configuration_gemma3 import Gemma3Config
 from transformers.models.gemma4 import Gemma4ForCausalLM, Gemma4ForConditionalGeneration
@@ -105,6 +106,21 @@ def build_tiny_gemma3_multimodal() -> Gemma3ForConditionalGeneration:
         mm_tokens_per_image=4,
     )
     return _randomly_initialised(Gemma3ForConditionalGeneration, config)  # type: ignore[return-value]
+
+
+def build_tiny_gemma2() -> Gemma2ForCausalLM:
+    """A tiny Gemma 2 model on CPU, the class ``google/gemma-2-2b`` loads as: GELU-tanh gated
+    ``Gemma2MLP``, four ``Gemma2RMSNorm`` per block (``1 + w``) plus the final norm, no norms
+    inside attention, and Gemma 2's attention-logit and final-logit soft caps (50 and 30, the
+    published config's values)."""
+    config = AutoConfig.for_model(
+        "gemma2",
+        **_TINY_ATTENTION_CONFIG_KWARGS,
+        hidden_activation="gelu_pytorch_tanh",
+        attn_logit_softcapping=50.0,
+        final_logit_softcapping=30.0,
+    )
+    return _randomly_initialised(Gemma2ForCausalLM, config)  # type: ignore[return-value]
 
 
 def build_tiny_gemma4() -> Gemma4ForCausalLM:
