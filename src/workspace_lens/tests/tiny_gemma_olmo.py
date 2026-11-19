@@ -1,10 +1,10 @@
-"""Tiny CPU-only Gemma 4, Gemma 3 and OLMo 3 text models for the LRP-surgery tests.
+"""Tiny CPU-only Gemma 4, Gemma 3, Gemma 2 and OLMo 3 text models for the LRP-surgery tests.
 
 Like :mod:`workspace_lens.tests.tiny_qwen`, these build the real transformers
 classes from shrunk configs, so the module classes the LRP surgery patches on
 the full models — ``Gemma4RMSNorm`` (plain weight, optional
 ``with_scale``), ``Gemma4TextMLP`` (GELU-tanh), ``Gemma3RMSNorm`` (``1 + w``
-in fp32), ``Gemma3MLP`` (GELU-tanh), ``Olmo3RMSNorm`` (weight in
+in fp32), ``Gemma3MLP`` (GELU-tanh), their Gemma 2 counterparts, ``Olmo3RMSNorm`` (weight in
 fp32 before the cast, on the sublayer outputs of a post-norm block) and
 ``Olmo3MLP`` (SiLU) — exercise the per-class patchers for real. Gemma's
 attention keeps its ``q_norm``, ``k_norm`` (and, in Gemma 4, a weightless
@@ -28,6 +28,7 @@ from __future__ import annotations
 import torch as t
 from torch import nn
 from transformers import AutoConfig
+from transformers.models.gemma2 import Gemma2ForCausalLM
 from transformers.models.gemma3 import Gemma3ForCausalLM
 from transformers.models.gemma4 import Gemma4ForCausalLM, Gemma4ForConditionalGeneration
 from transformers.models.gemma4.configuration_gemma4 import Gemma4Config
@@ -103,6 +104,21 @@ def build_tiny_gemma3() -> Gemma3ForCausalLM:
         "gemma3_text", **_TINY_ATTENTION_CONFIG_KWARGS, hidden_activation="gelu_pytorch_tanh"
     )
     return _randomly_initialised(Gemma3ForCausalLM, config)  # type: ignore[return-value]
+
+
+def build_tiny_gemma2() -> Gemma2ForCausalLM:
+    """A tiny Gemma 2 model on CPU, the class ``google/gemma-2-2b`` loads as: GELU-tanh gated
+    ``Gemma2MLP``, four ``Gemma2RMSNorm`` per block (``1 + w``) plus the final norm, no norms
+    inside attention, and Gemma 2's attention-logit and final-logit soft caps (50 and 30, the
+    published config's values)."""
+    config = AutoConfig.for_model(
+        "gemma2",
+        **_TINY_ATTENTION_CONFIG_KWARGS,
+        hidden_activation="gelu_pytorch_tanh",
+        attn_logit_softcapping=50.0,
+        final_logit_softcapping=30.0,
+    )
+    return _randomly_initialised(Gemma2ForCausalLM, config)  # type: ignore[return-value]
 
 
 def build_tiny_olmo3() -> Olmo3ForCausalLM:

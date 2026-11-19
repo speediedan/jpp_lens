@@ -40,8 +40,9 @@ gradient scale). ``shared_expert_forward_scale`` is NOT a propagation rule: it m
 DeepSeek shared expert's output in the forward, so the fitted model is the
 amplified one (used by the ``all-c4+mhc`` preset).
 
-Gemma 4 (``Gemma4RMSNorm``, ``Gemma4TextMLP`` with GELU-tanh), Gemma 3
-(``Gemma3RMSNorm`` in the ``1 + w`` form, ``Gemma3MLP`` with GELU-tanh) and OLMo 3
+Gemma 4 (``Gemma4RMSNorm``, ``Gemma4TextMLP`` with GELU-tanh), Gemma 3 and Gemma 2
+(``Gemma3RMSNorm`` / ``Gemma2RMSNorm`` in the ``1 + w`` form, ``Gemma3MLP`` / ``Gemma2MLP`` with
+GELU-tanh) and OLMo 3
 (``Olmo3RMSNorm`` on the sublayer outputs of its post-norm blocks,
 ``Olmo3MLP``) are covered too. The identity rule holds for any activation of
 the form ``act(z) = z · g(z)`` with the gate ``g`` detached (RelP's "GELU /
@@ -97,6 +98,7 @@ _KNOWN_GATED_MLPS = (
     "Olmo3MLP",  # SiLU; forward byte-identical to Qwen3_5MLP's (transformers 5.14.1)
     "Gemma4TextMLP",  # GELU-tanh; same down(act(gate(x)) * up(x)) forward
     "Gemma3MLP",  # GELU-tanh; same down(act(gate(x)) * up(x)) forward (transformers 5.14.1)
+    "Gemma2MLP",  # GELU-tanh; forward byte-identical to Gemma3MLP's (transformers 5.14.1)
     # DeepSeek-V4's dense / shared-expert MLP: down(act(clamp(gate(x))) * clamp(up(x)))
     # with a ``limit`` attribute (swiglu_limit); the patcher reproduces the clamps.
     "DeepseekV4MLP",
@@ -335,6 +337,10 @@ _RMSNORM_LRP_FORWARDS = {
     # Gemma 3 keeps the (1 + w) form Gemma 4 dropped: zero-init weight, eps attr, fp32
     # normalise then type_as, the same forward as Qwen3.5's (transformers 5.14.1).
     "Gemma3RMSNorm": _qwen3_5_rmsnorm_lrp_forward,
+    # Gemma 2's forward is byte-identical to Gemma 3's (transformers 5.14.1). Its attention-logit soft
+    # cap sits inside self_attn, which keeps standard gradients; its final-logit soft cap is applied by
+    # the readout (jlens.hf), not by any patched module.
+    "Gemma2RMSNorm": _qwen3_5_rmsnorm_lrp_forward,
 }
 
 
